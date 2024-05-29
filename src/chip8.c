@@ -29,10 +29,17 @@ void chip8_init(cpu *chip8)
   chip8->screen_flag = 0;
 
   //load fontset
+  memset(chip8->memory, 0, sizeof(chip8->memory));
+  memset(chip8->v, 0, sizeof(chip8->v));
+  memset(chip8->stack, 0, sizeof(chip8->stack));
+  memset(chip8->keyboard, 0, sizeof(chip8->keyboard));
+  memset(chip8->screen, 0, sizeof(chip8->screen));
+
   for (int i = 0; i < 80; i++)
   {
     chip8->memory[i] = FONTSET[i];
   }
+
   
 }
 
@@ -58,7 +65,7 @@ int load_rom(cpu *chip8, char *file)
 
 
 
-void execute_instruction(cpu *chip8, uint32 *buffer)
+void execute_instruction(cpu *chip8)
 {
   fetch_opcode(chip8);
   // first compare to the first hex value
@@ -69,7 +76,7 @@ void execute_instruction(cpu *chip8, uint32 *buffer)
 
         case 0x00E0:
           // 00E0 - CLS Clear the display.
-          clear_display(chip8, buffer);
+          clear_display(chip8);
           chip8->pc += 2;
           chip8->screen_flag = 1;
           break;
@@ -96,21 +103,21 @@ void execute_instruction(cpu *chip8, uint32 *buffer)
       // 3xkk - SE Vx, byte Skip next instruction if Vx = kk.
       if (chip8->v[chip8->opcode & 0x0F00 >> 8] == (chip8->opcode & 0x00FF)) 
       {
-        chip8->pc += 2;
+        chip8->pc += 4;
       }
       break;
     case 0x4000:
       // 4xkk - SNE Vx, byte Skip next instruction if Vx != kk.
-      if (chip8->v[chip8->opcode & 0x0F00 >> 8] != (chip8->opcode & 0x00FF)) 
+      if (chip8->v[(chip8->opcode & 0x0F00) >> 8] != (chip8->opcode & 0x00FF)) 
       {
-        chip8->pc += 2;
+        chip8->pc += 4;
       }
       break;
     case 0x5000:
       // 5xy0 - SE Vx, Vy Skip next instruction if Vx = Vy.
-      if (chip8->v[chip8->opcode & 0x0F00 >> 8] == chip8->v[chip8->opcode & 0x00F0] >> 4) 
+      if (chip8->v[(chip8->opcode & 0x0F00) >> 8] == chip8->v[chip8->opcode & 0x00F0] >> 4) 
       {
-        chip8->pc += 2;
+        chip8->pc += 4;
       }
       break;
     case 0x6000:
@@ -121,7 +128,8 @@ void execute_instruction(cpu *chip8, uint32 *buffer)
       break;
     case 0x7000:
       // 7xkk - ADD Vx, byte Set Vx = Vx + kk.
-      chip8->v[chip8->opcode & 0x0F00 >> 8] += chip8->v[chip8->opcode & 0x00FF];
+      chip8->v[(chip8->opcode & 0x0F00) >> 8] += chip8->opcode & 0x00FF;
+      chip8->pc += 2;
       break;
     case 0x8000:
 
@@ -129,29 +137,34 @@ void execute_instruction(cpu *chip8, uint32 *buffer)
       {
         case 0x0000:
           // 8xy0 - LD Vx, Vy Set Vx = Vy.
-          chip8->v[chip8->opcode & 0x0F00 >> 8] = chip8->v[chip8->opcode & 0x00F0 >> 4];
+          chip8->v[(chip8->opcode & 0x0F00) >> 8] = chip8->v[(chip8->opcode & 0x00F0) >> 4];
+          chip8->pc += 2;
           break;
         case 0x0001:
           // 8xy1 - OR Vx, Vy Set Vx = Vx OR Vy.
-          chip8->v[chip8->opcode & 0x0F00 >> 8] |= chip8->v[chip8->opcode & 0x00F0 >> 4];
+          chip8->v[(chip8->opcode & 0x0F00) >> 8] |= chip8->v[(chip8->opcode & 0x00F0) >> 4];
+          chip8->pc += 2;
           break;
         case 0x0002:
           // 8xy2 - AND Vx, Vy Set Vx = Vx AND Vy.
-          chip8->v[chip8->opcode & 0x0F00 >> 8] &= chip8->v[chip8->opcode & 0x00F0 >> 4];
+          chip8->v[(chip8->opcode & 0x0F00) >> 8] &= chip8->v[(chip8->opcode & 0x00F0) >> 4];
+          chip8->pc += 2;
           break;
         case 0x0003:
           // 8xy3 - XOR Vx, Vy Set Vx = Vx XOR Vy.
-          chip8->v[chip8->opcode & 0x0F00 >> 8] ^= chip8->v[chip8->opcode & 0x00F0 >> 4];
+          chip8->v[(chip8->opcode & 0x0F00) >> 8] ^= chip8->v[(chip8->opcode & 0x00F0) >> 4];
+          chip8->pc += 2;
           break;
         case 0x0004:
           // 8xy4 - ADD Vx, Vy
           // Set Vx = Vx + Vy, set VF = carry.
-          chip8->v[chip8->opcode & 0x0F00 >> 8] += chip8->v[chip8->opcode & 0x00F0 >> 4];
-          if ((chip8->v[chip8->opcode & 0x0F00 >> 8]) > 255)
+          chip8->v[(chip8->opcode & 0x0F00) >> 8] += chip8->v[(chip8->opcode & 0x00F0) >> 4];
+          if ((chip8->v[(chip8->opcode & 0x0F00) >> 8]) > 255)
           {
             // set carry
             chip8->v[0xF] = 1;
           }
+          chip8->pc += 2;
           break;
         case 0x0005:
           // 8xy5 - sub vx, vy
@@ -164,12 +177,13 @@ void execute_instruction(cpu *chip8, uint32 *buffer)
         {
             chip8->v[0xF] = 0;
           }
-          chip8->v[chip8->opcode & 0x0F00 >> 8] -= chip8->v[chip8->opcode & 0x00F0 >> 4];
+          chip8->v[(chip8->opcode & 0x0F00) >> 8] -= chip8->v[(chip8->opcode & 0x00F0) >> 4];
+          chip8->pc += 2;
           break;
         case 0x0006:
           // 8xy6 - SHR Vx {, Vy}
           // Set Vx = Vx SHR 1.
-          if ((chip8->v[chip8->opcode & 0x0F00 >> 8] & 0x01) != 0)
+          if ((chip8->v[(chip8->opcode & 0x0F00) >> 8] & 0x01) != 0)
           {
             chip8->v[0xF] = 1;
           }
@@ -177,12 +191,13 @@ void execute_instruction(cpu *chip8, uint32 *buffer)
         {
             chip8->v[0xF] = 0;
           }
-          chip8->v[chip8->opcode & 0x0F00 >> 8] = chip8->v[chip8->opcode & 0x0F00 >> 8] >> 1;
+          chip8->v[(chip8->opcode & 0x0F00) >> 8] = chip8->v[(chip8->opcode & 0x0F00) >> 8] >> 1;
+          chip8->pc += 2;
           break;
         case 0x0007:
           // 8xy7 - SUBN Vx, Vy
           // Set Vx = Vy - Vx, set VF = NOT borrow.
-          if (chip8->v[chip8->opcode & 0x0F00 >> 8] < chip8->v[chip8->opcode & 0x00F0] >> 4)
+          if (chip8->v[(chip8->opcode & 0x0F00) >> 8] < chip8->v[(chip8->opcode & 0x00F0) >> 4])
           {
             chip8->v[0xF] = 1;
           }
@@ -190,12 +205,13 @@ void execute_instruction(cpu *chip8, uint32 *buffer)
         {
             chip8->v[0xF] = 0;
           }
-          chip8->v[chip8->opcode & 0x00F0 >> 4] = chip8->v[chip8->opcode & 0x00F0 >> 4] >> 1;
+          chip8->v[(chip8->opcode & 0x00F0) >> 4] = chip8->v[(chip8->opcode & 0x00F0) >> 4] >> 1;
+          chip8->pc += 2;
           break;
-        case 0x0008:
+        case 0x000E:
           // 8xyE - SHL Vx {, Vy}
           // Set Vx = Vx SHL 1.
-          if ((chip8->v[chip8->opcode & 0x0F00 >> 8] & 0x80) != 0)
+          if ((chip8->v[(chip8->opcode & 0x0F00) >> 8] & 0x80) != 0)
           {
             chip8->v[0xF] = 1;
           }
@@ -203,22 +219,22 @@ void execute_instruction(cpu *chip8, uint32 *buffer)
         {
             chip8->v[0xF] = 0;
           }
-          chip8->v[chip8->opcode & 0x0F00 >> 8] = chip8->v[chip8->opcode & 0x0F00 >> 8] << 1;
-          break;
-        case 0x0009:
-          // 9xy0n- SNE Vx, Vy
-          // Skip next instruction if Vx != Vy.
-          if (chip8->v[chip8->opcode & 0x0F00 >> 8] != chip8->v[chip8->opcode & 0x00F0] >> 4)
-          {
-            chip8->pc += 2;
-          }
-          else 
-        {
-            chip8->pc += 1;
-          }
+          chip8->v[(chip8->opcode & 0x0F00) >> 8] = chip8->v[(chip8->opcode & 0x0F00) >> 8] << 1;
+          chip8->pc += 2;
           break;
       }
     case 0x9000:
+      // 9xy0 - SNE Vx, Vy
+      // Skip next instruction if Vx != Vy.
+      if (chip8->v[(chip8->opcode & 0x0F00) >> 8] != chip8->v[(chip8->opcode & 0x00F0) >> 4])
+      {
+        chip8->pc += 4;
+      }
+      else 
+    {
+        chip8->pc += 2;
+      }
+      break;
       break;
     case 0xA000:
       // Annn - LD I, addr
@@ -227,14 +243,21 @@ void execute_instruction(cpu *chip8, uint32 *buffer)
       chip8->pc += 2;
       break;
     case 0xB000:
+      // Bnnn - JP V0, addr
+      // Jump to location nnn + V0.
+      chip8->pc = (chip8->opcode & 0x0FFF) + chip8->v[0];
       break;
     case 0xC000:
+      // Cxkk - RND Vx, byte
+      // Set Vx = random byte AND kk.
+      chip8->v[(chip8->opcode & 0x0F00) >> 8] = (rand() % 255) & (chip8->opcode & 0x00FF);
+      chip8->pc += 2;
       break;
     case 0xD000:
       // Dxyn - DRW Vx, Vy, nibble
       // Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision.
-      int x = chip8->v[chip8->opcode & 0x0F00 >> 8] % 64;
-      int y = chip8->v[chip8->opcode & 0x00F0 >> 4] % 32;
+      int x = chip8->v[(chip8->opcode & 0x0F00) >> 8] % 64;
+      int y = chip8->v[(chip8->opcode & 0x00F0) >> 4] % 32;
       int n = chip8->opcode & 0x000F;
       chip8->v[0xF] = 0;
       uint8 sprite_data;
@@ -257,20 +280,14 @@ void execute_instruction(cpu *chip8, uint32 *buffer)
             break;
           }
 
-          if ((sprite_data & 0x80) >> j != 0)
+          if ((sprite_data & (0x80 >> j)) != 0)
           {
             // current pixel is on
             if (chip8->screen[x + j + 64 * (y +i)] == 1) 
             {
               chip8->v[0xF] = 1;
-              chip8->screen[x + j + 64 * (y +i)] = 0;
             }
-            else
-          {
-              chip8->v[0xF] = 0;
-              chip8->screen[x + j + 64 * (y +i)] = 1;
-            }
-
+            chip8->screen[x + j + 64 * (y +i)] ^= 1;
           }
         }
 
@@ -281,8 +298,33 @@ void execute_instruction(cpu *chip8, uint32 *buffer)
 
       break;
     case 0xE000:
-      break;
+      switch (chip8->opcode & 0x00FF) 
+      {
+        case 0x9E:
+          // Ex9E - SKP Vx
+          // Skip next instruction if key with the value of Vx is pressed.
+          if (chip8->keyboard[chip8->v[(chip8->opcode & 0x0F00) >> 8]] != 0)
+          {
+            chip8->pc += 4;
+          }
+          break;
+        case 0xA1:
+          // ExA1 - SKNP Vx
+          // Skip next instruction if key with the value of Vx is not pressed.
+          if (chip8->keyboard[chip8->v[(chip8->opcode & 0x0F00) >> 8]] == 0)
+          {
+            chip8->pc += 4;
+          }
+          break;
+      } 
     case 0xF000:
+      switch (chip8->opcode & 0x00FF) {
+        case 0x07:
+          // Fx07 - LD Vx, DT
+          // Set Vx = delay timer value.
+          chip8->v[(chip8->opcode & 0x0F00) >> 8] = chip8->delay_timer;
+          break;
+      }
       break;
   }
 }
@@ -309,11 +351,10 @@ void fetch_opcode(cpu *chip8)
   chip8->opcode = chip8->memory[chip8->pc] << 8 | chip8->memory[chip8->pc + 1];
 }
 
- void clear_display(cpu *chip8, uint32 *buffer){
+ void clear_display(cpu *chip8){
   for (int y_value = 0; y_value < 32; y_value ++) {
     for (int x_value = 0; x_value < 64; x_value ++) {
-      chip8->screen[x_value + 64 * y_value] = 1;
-      buffer[x_value + 64 * y_value] = 0xFFFFFFFF;
+      chip8->screen[x_value + 64 * y_value] = 0;
     }
   }
 }

@@ -47,7 +47,7 @@ int main(int argc, char* argv[])
 
   SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING,64,32);
 
-  uint32_t *pixel_buffer = malloc((32 * 6) * sizeof(uint32_t));
+  uint32_t *pixel_buffer = malloc((32 * 64) * sizeof(uint32_t));
   // init chip8
   cpu chip8;
   chip8_init(&chip8);
@@ -81,5 +81,9 @@ int main(int argc, char* argv[])
    
   }
   free(pixel_buffer);
+  SDL_DestroyWindow(window);
+  SDL_DestroyRenderer(renderer);
+  SDL_DestroyTexture(texture);
+  SDL_Quit();
   return 0;
 }

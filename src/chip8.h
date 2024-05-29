@@ -33,7 +33,7 @@ void get_screen_buffer(cpu *chip8, uint32 *buffer);
 
 int load_rom(cpu *chip8,char *file);
 void fetch_opcode(cpu *chip8);
-void execute_instruction(cpu *chip8, uint32 *buffer);
+void execute_instruction(cpu *chip8);
 
 void emulate_cycle();
 
@@ -42,6 +42,6 @@ void draw_graphics();
 void set_keys();
 
 void update_screen();
-void clear_display(cpu *chip8, uint32 *buffer);
+void clear_display(cpu *chip8);
 
 #endif // !CHIP8_H
