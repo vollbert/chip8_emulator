@@ -19,6 +19,6 @@ clean:
 	rm -rf $(OBJS) $(TARGET)
 
 debug:
-	gdb --args $(TARGET) roms/IBM_logo.ch8 
+	gdb --args $(TARGET) roms/test_opcode.ch8 
 
 .PHONY: all clean

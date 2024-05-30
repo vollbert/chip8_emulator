@@ -83,8 +83,8 @@ void execute_instruction(cpu *chip8)
 
         case 0x00EE:
           //00EE - RET Return from a subroutine.
+          chip8->sp -= 1;
           chip8->pc = chip8->stack[chip8->sp];
-          chip8->sp--;
           break;
       }
       break;
@@ -95,15 +95,18 @@ void execute_instruction(cpu *chip8)
       break;
     case 0x2000:
       // 2nnn - CALL addr Call subroutine at nnn.
-      chip8->sp += 1;
       chip8->stack[chip8->sp] = chip8->pc;
       chip8->pc = chip8->opcode & 0x0FFF;
+      chip8->sp += 1;
       break;
     case 0x3000:
       // 3xkk - SE Vx, byte Skip next instruction if Vx = kk.
-      if (chip8->v[chip8->opcode & 0x0F00 >> 8] == (chip8->opcode & 0x00FF)) 
+      if (chip8->v[(chip8->opcode & 0x0F00) >> 8] == (chip8->opcode & 0x00FF)) 
       {
         chip8->pc += 4;
+      }
+      else {
+        chip8->pc += 2;
       }
       break;
     case 0x4000:
@@ -112,18 +115,24 @@ void execute_instruction(cpu *chip8)
       {
         chip8->pc += 4;
       }
+      else {
+        chip8->pc += 2;
+      }
       break;
     case 0x5000:
       // 5xy0 - SE Vx, Vy Skip next instruction if Vx = Vy.
-      if (chip8->v[(chip8->opcode & 0x0F00) >> 8] == chip8->v[chip8->opcode & 0x00F0] >> 4) 
+      if (chip8->v[(chip8->opcode & 0x0F00) >> 8] == chip8->v[(chip8->opcode & 0x00F0) >> 4]) 
       {
         chip8->pc += 4;
+      }
+      else {
+        chip8->pc += 2;
       }
       break;
     case 0x6000:
       // 6xkk add value of kk to register Vx and stores value in Vx
       uint8 target_reg = (chip8->opcode & 0x0F00) >> 8;
-      chip8->v[target_reg] += chip8->opcode & 0x00FF;
+      chip8->v[target_reg] = chip8->opcode & 0x00FF;
       chip8->pc += 2;
       break;
     case 0x7000:
@@ -223,6 +232,7 @@ void execute_instruction(cpu *chip8)
           chip8->pc += 2;
           break;
       }
+      break;
     case 0x9000:
       // 9xy0 - SNE Vx, Vy
       // Skip next instruction if Vx != Vy.
@@ -317,6 +327,7 @@ void execute_instruction(cpu *chip8)
           }
           break;
       } 
+      break;
     case 0xF000:
       switch (chip8->opcode & 0x00FF) {
         case 0x07:
