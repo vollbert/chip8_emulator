@@ -19,6 +19,6 @@ clean:
 	rm -rf $(OBJS) $(TARGET)
 
 debug:
-	gdb --args $(TARGET) roms/test_opcode.ch8 
+	gdb --args $(TARGET) roms/1-chip8-logo.8o 
 
 .PHONY: all clean

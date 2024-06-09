@@ -67,6 +67,7 @@ int load_rom(cpu *chip8, char *file)
 
 void execute_instruction(cpu *chip8)
 {
+  uint8 v_x = chip8->v[(chip8->opcode & 0x0F00) >> 8];
   fetch_opcode(chip8);
   // first compare to the first hex value
   switch (chip8->opcode & 0xF000) {
@@ -84,7 +85,7 @@ void execute_instruction(cpu *chip8)
         case 0x00EE:
           //00EE - RET Return from a subroutine.
           chip8->sp -= 1;
-          chip8->pc = chip8->stack[chip8->sp];
+          chip8->pc = chip8->stack[chip8->sp] + 2;
           break;
       }
       break;
@@ -334,6 +335,59 @@ void execute_instruction(cpu *chip8)
           // Fx07 - LD Vx, DT
           // Set Vx = delay timer value.
           chip8->v[(chip8->opcode & 0x0F00) >> 8] = chip8->delay_timer;
+          chip8->pc += 2;
+          break;
+        case 0x0A:
+          // Fx0A - LD Vx, K
+          // Wait for a key press, store the value of the key in Vx.
+          // to do
+          break;
+        case 0x15:
+          // Fx15 - LD DT, Vx
+          // Set delay timer = Vx.
+          chip8->delay_timer = chip8->v[(chip8->opcode & 0x0F00) >> 8];
+          chip8->pc += 2;
+          break;
+        case 0x18:
+          // Fx18 - LD ST, Vx
+          // Set sound timer = Vx.
+          chip8->sound_timer = chip8->v[(chip8->opcode & 0x0F00) >> 8];
+          chip8->pc += 2;
+          break;
+        case 0x1E:
+          // Fx1E - ADD I, Vx
+          // Set I = I + Vx.
+          chip8->i += chip8->v[(chip8->opcode & 0x0F00) >> 8];
+          chip8->pc += 2;
+          break;
+        case 0x29:
+          // Fx29 - LD F, Vx
+          // Set I = location of sprite for digit Vx.
+          v_x = chip8->v[(chip8->opcode & 0x0F00) >> 8];
+          chip8->i = 0x50 + v_x - 48 * 5;
+          chip8->pc += 2;
+          break;
+        case 0x33:
+          // Fx33 - LD B, Vx
+          // Store BCD representation of Vx in memory locations I, I+1, and I+2.
+          v_x = chip8->v[(chip8->opcode & 0x0F00) >> 8];
+          uint8 v_x1 = v_x % 10;
+          uint8 v_x10 = (v_x / 10) % 10;
+          uint8 v_x100 = v_x / 100;
+          uint8 i = chip8->i;
+          chip8->memory[i] = v_x100;
+          chip8->memory[i + 1] = v_x10;
+          chip8->memory[i + 2] = v_x1;
+          chip8->pc += 2;
+          break;
+        case 0x55:
+          // Fx55 - LD [I], Vx
+          // Store registers V0 through Vx in memory starting at location I.
+          uint8 x = (chip8->opcode & 0x0F00) >> 8;
+          for (int i = 0; i < x; i++) {
+            chip8->memory[chip8->i + i] = chip8->v[i];
+          }
+          chip8->pc += 2;
           break;
       }
       break;
